@@ -22,56 +22,75 @@ import android.net.Uri;
 
 /**
  * TODO Write javadoc
+ *
  * @author Ulrich Raab
  * @author MADNESS
  */
 class ColumnMapper {
 
     // Utility class -> No instances allowed
-    private ColumnMapper () {}
+    private ColumnMapper() {
+    }
 
-    static void mapInVisibleGroup (Cursor cursor, Contact contact, int columnIndex) {
+    static void mapInVisibleGroup(Cursor cursor, Contact contact, int columnIndex) {
         contact.setInVisibleGroup(cursor.getInt(columnIndex));
     }
 
-    static void mapDisplayName (Cursor cursor, Contact contact, int columnIndex) {
+    static void mapDisplayName(Cursor cursor, Contact contact, int columnIndex) {
         String displayName = cursor.getString(columnIndex);
         if (displayName != null && !displayName.isEmpty()) {
             contact.setDisplayName(displayName);
         }
     }
 
-    static void mapEmail (Cursor cursor, Contact contact, int columnIndex) {
+    static void mapGivenName(Cursor cursor, Contact contact, int columnIndex) {
+        String givenName = cursor.getString(columnIndex);
+        if (givenName != null && !givenName.isEmpty()) {
+            contact.setGivenName(givenName);
+        }
+    }
+
+    static void mapFamilyName(Cursor cursor, Contact contact, int columnIndex) {
+        if (columnIndex < 0) {
+            return;
+        }
+        String familyName = cursor.getString(columnIndex);
+        if (familyName != null && !familyName.isEmpty()) {
+            contact.setFamilyName(familyName);
+        }
+    }
+
+    static void mapEmail(Cursor cursor, Contact contact, int columnIndex) {
         String email = cursor.getString(columnIndex);
         if (email != null && !email.isEmpty()) {
             contact.getEmails().add(email);
         }
     }
 
-    static void mapPhoneNumber (Cursor cursor, Contact contact, int columnIndex) {
+    static void mapPhoneNumber(Cursor cursor, Contact contact, int columnIndex) {
         String phoneNumber = cursor.getString(columnIndex);
         if (phoneNumber != null && !phoneNumber.isEmpty()) {
             // Remove all whitespaces
-            phoneNumber = phoneNumber.replaceAll("\\s+","");
+            phoneNumber = phoneNumber.replaceAll("\\s+", "");
             contact.getPhoneNumbers().add(phoneNumber);
         }
     }
 
-    static void mapPhoto (Cursor cursor, Contact contact, int columnIndex) {
+    static void mapPhoto(Cursor cursor, Contact contact, int columnIndex) {
         String uri = cursor.getString(columnIndex);
         if (uri != null && !uri.isEmpty()) {
             contact.setPhoto(Uri.parse(uri));
         }
     }
 
-    static void mapStarred (Cursor cursor, Contact contact, int columnIndex) {
+    static void mapStarred(Cursor cursor, Contact contact, int columnIndex) {
         contact.setStarred(cursor.getInt(columnIndex) != 0);
     }
 
-    static void mapThumbnail (Cursor cursor, Contact contact, int columnIndex) {
+    static void mapThumbnail(Cursor cursor, Contact contact, int columnIndex) {
         String uri = cursor.getString(columnIndex);
         if (uri != null && !uri.isEmpty()) {
-            contact.setThumbnail( Uri.parse(uri));
+            contact.setThumbnail(Uri.parse(uri));
         }
     }
 }

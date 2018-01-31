@@ -30,6 +30,8 @@ import io.reactivex.ObservableOnSubscribe;
 
 import static ir.mirrajabi.rxcontacts.ColumnMapper.mapDisplayName;
 import static ir.mirrajabi.rxcontacts.ColumnMapper.mapEmail;
+import static ir.mirrajabi.rxcontacts.ColumnMapper.mapFamilyName;
+import static ir.mirrajabi.rxcontacts.ColumnMapper.mapGivenName;
 import static ir.mirrajabi.rxcontacts.ColumnMapper.mapInVisibleGroup;
 import static ir.mirrajabi.rxcontacts.ColumnMapper.mapPhoneNumber;
 import static ir.mirrajabi.rxcontacts.ColumnMapper.mapPhoto;
@@ -39,6 +41,7 @@ import static ir.mirrajabi.rxcontacts.ColumnMapper.mapThumbnail;
 
 /**
  * Android contacts as rx observable.
+ *
  * @author Ulrich Raab
  * @author MADNESS
  */
@@ -46,6 +49,8 @@ public class RxContacts {
     private static final String[] PROJECTION = {
             ContactsContract.Data.CONTACT_ID,
             ContactsContract.Data.DISPLAY_NAME_PRIMARY,
+            ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME,
+            ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME,
             ContactsContract.Data.STARRED,
             ContactsContract.Data.PHOTO_URI,
             ContactsContract.Data.PHOTO_THUMBNAIL_URI,
@@ -56,7 +61,7 @@ public class RxContacts {
 
     private ContentResolver mResolver;
 
-    public static Observable<Contact> fetch (@NonNull final Context context) {
+    public static Observable<Contact> fetch(@NonNull final Context context) {
         return Observable.create(new ObservableOnSubscribe<Contact>() {
             @Override
             public void subscribe(@io.reactivex.annotations.NonNull
@@ -71,13 +76,15 @@ public class RxContacts {
     }
 
 
-    private void fetch (ObservableEmitter<Contact> emitter) {
+    private void fetch(ObservableEmitter<Contact> emitter) {
         HashMap<Long, Contact> contacts = new HashMap<>();
         Cursor cursor = createCursor();
         cursor.moveToFirst();
         int idColumnIndex = cursor.getColumnIndex(ContactsContract.Data.CONTACT_ID);
         int inVisibleGroupColumnIndex = cursor.getColumnIndex(ContactsContract.Data.IN_VISIBLE_GROUP);
         int displayNamePrimaryColumnIndex = cursor.getColumnIndex(ContactsContract.Data.DISPLAY_NAME_PRIMARY);
+        int givenNameColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME);
+        int familyNameColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.StructuredName.FAMILY_NAME);
         int starredColumnIndex = cursor.getColumnIndex(ContactsContract.Data.STARRED);
         int photoColumnIndex = cursor.getColumnIndex(ContactsContract.Data.PHOTO_URI);
         int thumbnailColumnIndex = cursor.getColumnIndex(ContactsContract.Data.PHOTO_THUMBNAIL_URI);
@@ -89,6 +96,8 @@ public class RxContacts {
             if (contact == null) {
                 contact = new Contact(id);
                 mapInVisibleGroup(cursor, contact, inVisibleGroupColumnIndex);
+                mapGivenName(cursor, contact, givenNameColumnIndex);
+                mapFamilyName(cursor, contact, familyNameColumnIndex);
                 mapDisplayName(cursor, contact, displayNamePrimaryColumnIndex);
                 mapStarred(cursor, contact, starredColumnIndex);
                 mapPhoto(cursor, contact, photoColumnIndex);
@@ -115,7 +124,10 @@ public class RxContacts {
         emitter.onComplete();
     }
 
-    private Cursor createCursor () {
+    private Cursor createCursor() {
+        String whereName = ContactsContract.Data.MIMETYPE + " = ?";
+        String[] whereNameParams = new String[]{ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE};
+
         return mResolver.query(
                 ContactsContract.Data.CONTENT_URI,
                 PROJECTION,

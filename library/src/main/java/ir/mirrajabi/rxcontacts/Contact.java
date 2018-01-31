@@ -24,6 +24,7 @@ import java.util.Set;
 
 /**
  * Contact entity.
+ *
  * @author Ulrich Raab
  * @author MADNESS
  */
@@ -31,6 +32,8 @@ import java.util.Set;
 public class Contact implements Comparable<Contact> {
     private final long mId;
     private int mInVisibleGroup;
+    private String givenName;
+    private String familyName;
     private String mDisplayName;
     private boolean mStarred;
     private Uri mPhoto;
@@ -102,21 +105,38 @@ public class Contact implements Comparable<Contact> {
         mPhoneNumbers = phoneNumbers;
     }
 
+    public String getGivenName() {
+        return givenName;
+    }
 
-    @Override
-    public int compareTo(Contact other) {
-        if(mDisplayName != null && other.mDisplayName != null)
-            return mDisplayName.compareTo(other.mDisplayName);
-        else return -1;
+    public void setGivenName(String givenName) {
+        this.givenName = givenName;
+    }
+
+    public String getFamilyName() {
+        return familyName;
+    }
+
+    public void setFamilyName(String familyName) {
+        this.familyName = familyName;
     }
 
     @Override
-    public int hashCode () {
+    public int compareTo(Contact other) {
+        if (mDisplayName != null && other.mDisplayName != null) {
+            return mDisplayName.compareTo(other.mDisplayName);
+        } else {
+            return -1;
+        }
+    }
+
+    @Override
+    public int hashCode() {
         return (int) (mId ^ (mId >>> 32));
     }
 
     @Override
-    public boolean equals (Object o) {
+    public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
