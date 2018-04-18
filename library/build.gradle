@@ -2,12 +2,11 @@ apply plugin: 'com.android.library'
 group = 'com.github.mirrajabi'
 
 android {
-    compileSdkVersion 27
-    buildToolsVersion "27.0.2"
+    compileSdkVersion rootProject.ext.compileSdkVersion
 
     defaultConfig {
         minSdkVersion 14
-        targetSdkVersion 27
+        targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
 
@@ -22,6 +21,7 @@ android {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile "io.reactivex.rxjava2:rxjava:2.1.7"
-    compile 'com.android.support:support-annotations:27.0.2'
+    implementation 'io.reactivex.rxjava2:rxjava:2.1.7'
+    implementation 'com.jakewharton.timber:timber:4.7.0'
+    implementation "com.android.support:support-annotations:${rootProject.ext.supportLibraryVersion}"
 }
