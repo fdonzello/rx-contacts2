@@ -21,7 +21,7 @@ public class ContactAdapter extends RecyclerView.Adapter<ContactAdapter.ViewHold
 
     @Override
     public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-        // Inflate the ContactView and set the click listener
+        // Inflate the ContactView and set the click scrollListener
         ContactView contactView = ContactView.inflate(parent, false);
         contactView.setOnClickListener(v -> {
             if (callback != null) {

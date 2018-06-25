@@ -32,7 +32,6 @@ import io.reactivex.ObservableEmitter;
 import io.reactivex.ObservableOnSubscribe;
 import timber.log.Timber;
 
-import static ir.mirrajabi.rxcontacts.ColumnMapper.mapDisplayName;
 import static ir.mirrajabi.rxcontacts.ColumnMapper.mapFamilyName;
 import static ir.mirrajabi.rxcontacts.ColumnMapper.mapGivenName;
 
@@ -46,8 +45,7 @@ import static ir.mirrajabi.rxcontacts.ColumnMapper.mapGivenName;
 public class RxContacts {
     private static final String[] PROJECTION = {
             ContactsContract.Data.CONTACT_ID,
-            ContactsContract.Data.RAW_CONTACT_ID,
-            ContactsContract.Data.DISPLAY_NAME_PRIMARY,
+            ContactsContract.Data.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME,
             ContactsContract.CommonDataKinds.StructuredName.FAMILY_NAME,
             ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME,
@@ -64,7 +62,36 @@ public class RxContacts {
             @Override
             public void subscribe(@io.reactivex.annotations.NonNull
                                           ObservableEmitter<List<Contact>> e) throws Exception {
-                e.onNext(new RxContacts(context).fetch(page));
+                e.onNext(new RxContacts(context).fetch(page, null));
+//                e.onComplete();
+            }
+        });
+    }
+
+    public static Observable<List<Contact>> search(@NonNull final Context context, final int page, final String query) {
+        return Observable.create(new ObservableOnSubscribe<List<Contact>>() {
+            @Override
+            public void subscribe(@io.reactivex.annotations.NonNull
+                                          ObservableEmitter<List<Contact>> e) throws Exception {
+                e.onNext(new RxContacts(context).fetch(page, query));
+//                e.onComplete();
+            }
+        });
+    }
+
+    /**
+     * WARNING: this does not return first and last name
+     *
+     * @param context
+     * @param id
+     * @return
+     */
+    public static Observable<Contact> getContact(@NonNull final Context context, final long id) {
+        return Observable.create(new ObservableOnSubscribe<Contact>() {
+            @Override
+            public void subscribe(@io.reactivex.annotations.NonNull
+                                          ObservableEmitter<Contact> e) throws Exception {
+                e.onNext(new RxContacts(context).getContact(id));
 //                e.onComplete();
             }
         });
@@ -75,21 +102,84 @@ public class RxContacts {
     }
 
 
-    private List<Contact> fetch(int page) {
+    private Contact getContact(long id) {
+        Timber.i("Getting contact id: %d", id);
+
+        Cursor cursor = mResolver.query(
+                ContactsContract.Data.CONTENT_URI,
+                PROJECTION,
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                new String[]{String.valueOf(id)},
+                null
+        );
+
+
+        if (cursor == null || cursor.getCount() == 0 || !cursor.moveToNext()) {
+            return null;
+        }
+
+
+        int givenNameColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME);
+        int familyNameColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.StructuredName.FAMILY_NAME);
+        int hasPhoneNumberColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.HAS_PHONE_NUMBER);
+
+
+        Contact contact = new Contact(id);
+        mapGivenName(cursor, contact, givenNameColumnIndex);
+        mapFamilyName(cursor, contact, familyNameColumnIndex);
+
+        // email
+        Cursor ce = mResolver.query(
+                ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+                null,
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                new String[]{Long.toString(id)},
+                null
+        );
+
+        if (ce != null && ce.moveToFirst()) {
+            String email = ce.getString(ce.getColumnIndex(ContactsContract.CommonDataKinds.Email.DATA));
+            contact.getEmails().add(email);
+            ce.close();
+        }
+
+
+        // phone
+        int hasPhone = cursor.getInt(hasPhoneNumberColumnIndex);
+        if (hasPhone > 0) {
+            Cursor cp = mResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    null,
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                    new String[]{Long.toString(id)},
+                    null
+            );
+            if (cp != null && cp.moveToFirst()) {
+                String phone = cp.getString(cp.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
+                if (!TextUtils.isEmpty(phone)) {
+                    contact.getPhoneNumbers().add(phone);
+                }
+                cp.close();
+            }
+        }
+
+        cursor.close();
+
+        return contact;
+    }
+
+    private List<Contact> fetch(int page, String query) {
         HashMap<Long, Contact> contacts = new HashMap<>();
-        Cursor cursor = createCursor(page);
-        Timber.i("Query finished");
+        Cursor cursor = createCursor(page, query);
+        Timber.i("Query finished: %d results", cursor.getCount());
         cursor.moveToFirst();
 
         List<Contact> all = new ArrayList<>();
         while (!cursor.isAfterLast()) {
-//            Timber.i("Iterating");
 
-            int idColumnIndex = cursor.getColumnIndex(ContactsContract.Data.RAW_CONTACT_ID);
-            int displayNamePrimaryColumnIndex = cursor.getColumnIndex(ContactsContract.Data.DISPLAY_NAME_PRIMARY);
+            int idColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID);
             int givenNameColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME);
             int familyNameColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.StructuredName.FAMILY_NAME);
-            int hasPhoneNumberColumnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.HAS_PHONE_NUMBER);
 
             long id = cursor.getLong(idColumnIndex);
 
@@ -101,44 +191,8 @@ public class RxContacts {
                 contact = new Contact(id);
                 mapGivenName(cursor, contact, givenNameColumnIndex);
                 mapFamilyName(cursor, contact, familyNameColumnIndex);
-                mapDisplayName(cursor, contact, displayNamePrimaryColumnIndex);
                 contacts.put(id, contact);
             }
-
-            Cursor ce = mResolver.query(
-                    ContactsContract.CommonDataKinds.Email.CONTENT_URI,
-                    null,
-                    ContactsContract.CommonDataKinds.Email.RAW_CONTACT_ID + " = ?",
-                    new String[]{Long.toString(id)},
-                    null
-            );
-
-            if (ce != null && ce.moveToFirst()) {
-                String email = ce.getString(ce.getColumnIndex(ContactsContract.CommonDataKinds.Email.DATA));
-                contact.getEmails().add(email);
-                ce.close();
-            }
-
-
-            // phone
-            int hasPhone = cursor.getInt(hasPhoneNumberColumnIndex);
-            if (hasPhone > 0) {
-                Cursor cp = mResolver.query(
-                        ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                        null,
-                        ContactsContract.CommonDataKinds.Phone.RAW_CONTACT_ID + " = ?",
-                        new String[]{Long.toString(id)},
-                        null
-                );
-                if (cp != null && cp.moveToFirst()) {
-                    String phone = cp.getString(cp.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
-                    if (!TextUtils.isEmpty(phone)) {
-                        contact.getPhoneNumbers().add(phone);
-                    }
-                    cp.close();
-                }
-            }
-
 
             cursor.moveToNext();
         }
@@ -151,21 +205,34 @@ public class RxContacts {
         return all;
     }
 
-    private Cursor createCursor(int page) {
+    private Cursor createCursor(int page, String query) {
         String whereName = ContactsContract.Data.MIMETYPE + " = ?";
-        String[] whereNameParams = new String[]{ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE};
+        whereName += " AND " + ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME + " IS NOT NULL";
+        whereName += " AND LENGTH(" + ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME + ") > 0";
+        if (query != null && query.length() > 0) {
+            whereName += " AND " + ContactsContract.Data.DISPLAY_NAME + " LIKE ?";
+        }
 
-        String limit = String.format(" LIMIT %d,%d", (page - 1) * 1000, 1000 * page);
+        String[] whereNameParams;
+        if (query != null && query.length() > 0) {
+            whereNameParams = new String[]{ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE, "%" + query + "%"};
+        } else {
+            whereNameParams = new String[]{ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE};
+        }
+
+        String limit = String.format(" LIMIT %d,%d", (page - 1) * 50, 50 * page);
 
 
         Timber.i("Fetching contacts with limit: %s", limit);
+
+        Timber.v("where: %s", whereName);
 
         return mResolver.query(
                 ContactsContract.Data.CONTENT_URI,
                 PROJECTION,
                 whereName,
                 whereNameParams,
-                ContactsContract.Data.DISPLAY_NAME_PRIMARY + limit
+                ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME
         );
     }
 }
